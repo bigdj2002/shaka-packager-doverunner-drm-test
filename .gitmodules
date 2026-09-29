@@ -1,0 +1,3 @@
+[submodule "cpix-api-client"]
+	path = cpix-api-client
+	url = https://github.com/doverunner/cpix-api-client.git
