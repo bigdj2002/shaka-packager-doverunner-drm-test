@@ -1,6 +1,6 @@
 [submodule "cpix-api-client"]
 	path = cpix-api-client
-	url = https://github.com/doverunner/cpix-api-client.git
+	url = https://github.com/bigdj2002/cpix-api-client.git
 [submodule "drm-license-token-sample-python"]
 	path = drm-license-token-sample-python
-	url = https://github.com/doverunner/drm-license-token-sample-python.git
+	url = https://github.com/bigdj2002/drm-license-token-sample-python.git
