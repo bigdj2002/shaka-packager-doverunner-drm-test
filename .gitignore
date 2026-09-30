@@ -1,2 +1,6 @@
 .idea
 *.exe
+.env
+packaging-test/
+shaka_command*.log
+__pycache__/

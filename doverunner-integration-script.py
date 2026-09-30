@@ -14,8 +14,8 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 client_path = os.path.join(current_dir, 'cpix-api-client', 'python', 'src')
 sys.path.append(client_path)
 
-# Ensure correct packager binary for Mac environment
-PACKAGER_BIN = str(Path(current_dir) / 'packager-osx-arm64')
+# Allow the packaging environment to select its Shaka Packager binary.
+PACKAGER_BIN = os.environ.get("PACKAGER_BIN") or str(Path(current_dir) / 'packager-osx-arm64')
 
 from cpix_client import CpixClient
 from drm_type import DrmType
@@ -299,7 +299,7 @@ def _pick_default_source_from_renditions(root: Path) -> Path | None:
     return max(candidates, key=_score_rendition_candidate)
 
 
-def _resolve_input_for_label(source_path: Path, rendition_root: Path | None, label: str) -> Path:
+def _resolve_input_for_label(source_path: Path, rendition_root: Path | None, label: str, preferred_codec: str) -> Path:
     if not rendition_root:
         return source_path
 
@@ -313,15 +313,11 @@ def _resolve_input_for_label(source_path: Path, rendition_root: Path | None, lab
 
         if label.startswith("video-"):
             res = label.split("-", 1)[1]
-            alt_avc = rendition_root / f"output_avc_{res}.{ext}"
-            if alt_avc.exists():
-                return alt_avc
-            candidates.extend(rendition_root.glob(f"output_avc_{res}.*"))
-
-            alt_hevc = rendition_root / f"output_hevc_{res}.{ext}"
-            if alt_hevc.exists():
-                return alt_hevc
-            candidates.extend(rendition_root.glob(f"output_hevc_{res}.*"))
+            for codec in (preferred_codec, "avc" if preferred_codec == "hevc" else "hevc"):
+                alt = rendition_root / f"output_{codec}_{res}.{ext}"
+                if alt.exists():
+                    return alt
+                candidates.extend(rendition_root.glob(f"output_{codec}_{res}.*"))
 
         if label.startswith("audio-"):
             alt_audio = rendition_root / f"audio.{ext}"
@@ -529,7 +525,7 @@ def build_packaging_commands(
             drm_bucket = _bucket_for_label(track["label"]) if include_video else None
             shaka_args.append(
                 _build_stream_descriptor(
-                    input_path=_resolve_input_for_label(source_path, rendition_root, track["label"]),
+                    input_path=_resolve_input_for_label(source_path, rendition_root, track["label"], "hevc" if profile.startswith("hevc") else "avc"),
                     stream_kind="video",
                     bandwidth=track["bandwidth"],
                     init_segment=init_segment,
@@ -566,7 +562,7 @@ def build_packaging_commands(
         audio_drm_label = "AUDIO" if include_audio else None
         shaka_args.append(
             _build_stream_descriptor(
-                input_path=_resolve_input_for_label(source_path, rendition_root, audio["label"]),
+                input_path=_resolve_input_for_label(source_path, rendition_root, audio["label"], "hevc" if profile.startswith("hevc") else "avc"),
                 stream_kind="audio",
                 bandwidth=audio["bandwidth"],
                 init_segment=init_segment,
@@ -619,6 +615,21 @@ def get_key_info(enc_token, content_id, drm_types, encryption_scheme, track_type
             except Exception:
                 pass
         return None
+
+
+def _redact_packager_command(command: list[str]) -> list[str]:
+    sensitive_flags = {"--key", "--keys", "--iv", "--hls_key_uri"}
+    redacted = []
+    index = 0
+    while index < len(command):
+        argument = command[index]
+        redacted.append(argument)
+        if argument in sensitive_flags and index + 1 < len(command):
+            redacted.append("<redacted>")
+            index += 2
+        else:
+            index += 1
+    return redacted
 
 
 def run_shaka_packager(content_key_info, shaka_args, drm_types, encryption_scheme, track_types, track_types_as_labels, drm_enabled, is_ts_container=False, command_log_path=None):
@@ -727,7 +738,7 @@ def run_shaka_packager(content_key_info, shaka_args, drm_types, encryption_schem
     command.extend(shaka_args)
 
     try:
-        printable = " \\\n   ".join(shlex.quote(arg) for arg in command)
+        printable = " \\\n   ".join(shlex.quote(arg) for arg in _redact_packager_command(command))
         if command_log_path:
             with open(command_log_path, "a", encoding="utf-8") as f:
                 f.write("[shaka] full command:\n")
@@ -777,8 +788,7 @@ def run_shaka_packager(content_key_info, shaka_args, drm_types, encryption_schem
 
         print("Packaging complete.")
     except subprocess.CalledProcessError as e:
-        print(f"An error occurred while running Shaka Packager")
-        # print(f"An error occurred while running Shaka Packager: {e}")
+        raise SystemExit(f"Shaka Packager failed with exit code {e.returncode}") from e
 
 
 if __name__ == "__main__":

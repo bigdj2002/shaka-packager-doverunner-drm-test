@@ -1,21 +1,22 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
 set -euo pipefail
 
 INPUT=${1:?Usage: $0 <input-file> [mp4|fmp4]}
 FORMAT=${2:-mp4} # mp4 or fmp4
 BASE_OUTDIR="../abr-avc-video"
+FFMPEG_BIN="${FFMPEG_BIN:-ffmpeg}"
 LEVEL_IDC="5.2" # 4K60 requires level 5.2 (use 5.1 for <=4K30)
 FPS="${FPS:-60000/1001}"
 GOP="${GOP:-360}"
 
 case "$FORMAT" in
   mp4)
-    OUTDIR="${BASE_OUTDIR}-mp4"
+    OUTDIR="${OUTPUT_DIR:-${BASE_OUTDIR}-mp4}"
     MOVFLAGS="+faststart"
     FRAG_OPTS=""
     ;;
   fmp4)
-    OUTDIR="${BASE_OUTDIR}-fmp4"
+    OUTDIR="${OUTPUT_DIR:-${BASE_OUTDIR}-fmp4}"
     MOVFLAGS="+faststart+dash+frag_keyframe+separate_moof"
     FRAG_OPTS="-frag_duration 6000000 -min_frag_duration 6000000"
     ;;
@@ -34,7 +35,7 @@ encode() {
   local bufsize=$4
   local outfile=$5
 
-  ffmpeg -y -i "$INPUT" -pix_fmt yuv420p -vsync cfr -r "$FPS" -c:v libx264 -preset slow -profile:v high -level:v "$LEVEL_IDC" \
+  "$FFMPEG_BIN" -y -i "$INPUT" -pix_fmt yuv420p -vsync cfr -r "$FPS" -c:v libx264 -preset slow -profile:v high -level:v "$LEVEL_IDC" \
     -vf "scale=${scale}:-2" -b:v "$bv" -maxrate "$maxrate" -bufsize "$bufsize" \
     -g "$GOP" -keyint_min "$GOP" -sc_threshold 0 \
     -movflags "$MOVFLAGS" $FRAG_OPTS \

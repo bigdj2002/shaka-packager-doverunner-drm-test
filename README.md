@@ -23,6 +23,7 @@ Shell scripts and a Python helper for ABR encoding, remuxing, and DRM packaging 
 │   ├── abr-hevc-segment-rename.sh         # Rewrite segment URLs in HEVC manifests
 │   └── upload-shaka-to-s3.sh              # Upload packaged output to S3
 ├── cpix-api-client/                       # DoveRunner CPIX client (git submodule)
+├── drm-license-token-sample-python/       # Playback license token sample (git submodule)
 ├── packaging-test/                        # Local packaging output (git-ignored)
 ├── doverunner-integration-script.py       # Python wrapper that calls Shaka Packager
 ├── rewrite_manifest_urls.py               # URL rewrite utility for manifests
@@ -47,6 +48,8 @@ The DoveRunner CPIX API client is included as a Git submodule at `cpix-api-clien
 ```sh
 git submodule update --init --recursive
 ```
+
+The `drm-license-token-sample-python/` submodule is for generating a license token during playback validation. It does not provide the KMS token (`ENC_TOKEN`) used for packaging.
 
 ---
 
@@ -254,3 +257,5 @@ All other arguments are passed directly to Shaka Packager.
 - [DoveRunner CPIX API Client](https://github.com/doverunner/cpix-api-client)
 - [Shaka Packager](https://github.com/shaka-project/shaka-packager)
 - [Shaka Packager Releases](https://github.com/shaka-project/shaka-packager/releases/tag/v3.2.0)
+
+# shaka-packager-drm-test
